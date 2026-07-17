@@ -1,3 +1,6 @@
 .agents/
 migrations/
 tests/
+findings.md
+progress.md
+task_plan.md
