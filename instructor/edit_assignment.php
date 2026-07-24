@@ -5,7 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth.php';
 
 $user = require_role('instructor');
-$id = positive_id($_GET['id'] ?? null) ?? not_found('Invalid assignment ID.');
+$id = positive_id($_GET['id'] ?? $_POST['id'] ?? null) ?? not_found('Invalid assignment ID.');
+$returnPage = positive_id($_GET['page'] ?? $_POST['return_page'] ?? null) ?? 1;
 
 // Load the assignment with an ownership check.
 $assignmentStatement = database()->prepare(
@@ -26,8 +27,72 @@ $deadlineDate = date('Y-m-d', strtotime($assignment['deadline']));
 $deadlineTime = date('H:i', strtotime($assignment['deadline']));
 
 if (is_post()) {
-    // Validate all editable assignment fields.
     verify_csrf();
+    $action = clean_text($_POST['action'] ?? 'update');
+
+    if ($action === 'delete') {
+        // Remember submission files before database cascades remove their rows.
+        $fileStatement = database()->prepare(
+            'SELECT DISTINCT stored_filename
+             FROM submissions
+             WHERE assignment_id = :assignment'
+        );
+        $fileStatement->execute(['assignment' => $id]);
+        $storedFiles = $fileStatement->fetchAll(PDO::FETCH_COLUMN);
+        $deletedTitle = $assignment['title'];
+        $courseId = (int) $assignment['course_id'];
+
+        $pdo = database();
+        try {
+            $pdo->beginTransaction();
+            $deleteStatement = $pdo->prepare(
+                'DELETE a
+                 FROM assignments a
+                 JOIN courses c ON c.id = a.course_id
+                 WHERE a.id = :assignment AND c.instructor_id = :instructor'
+            );
+            $deleteStatement->execute([
+                'assignment' => $id,
+                'instructor' => $user['id'],
+            ]);
+            if ($deleteStatement->rowCount() !== 1) {
+                throw new RuntimeException('The assignment could not be deleted.');
+            }
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+
+        // Remove a file only when no other submission still references it.
+        $referenceStatement = database()->prepare(
+            'SELECT COUNT(*) FROM submissions WHERE stored_filename = :stored'
+        );
+        foreach ($storedFiles as $storedFile) {
+            $referenceStatement->execute(['stored' => $storedFile]);
+            if ((int) $referenceStatement->fetchColumn() === 0) {
+                $safeFilename = basename((string) $storedFile);
+                $filePath = __DIR__ . '/../uploads/submissions/' . $safeFilename;
+                if (is_file($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+        }
+
+        flash('success', 'Assignment deleted: ' . $deletedTitle . '.');
+        redirect(
+            'instructor/assignments.php?course_id=' . $courseId
+            . '&page=' . $returnPage
+        );
+    }
+
+    if ($action !== 'update') {
+        not_found('Invalid assignment action.');
+    }
+
+    // Validate all editable assignment fields.
     $title = clean_text($_POST['title'] ?? '');
     $instructions = clean_text($_POST['instructions'] ?? '');
     $deadlineDate = clean_text($_POST['deadline_date'] ?? '');
@@ -68,7 +133,10 @@ if (is_post()) {
             'id' => $id,
         ]);
         flash('success', 'Assignment updated.');
-        redirect('instructor/assignments.php?course_id=' . $assignment['course_id']);
+        redirect(
+            'instructor/assignments.php?course_id=' . $assignment['course_id']
+            . '&page=' . $returnPage
+        );
     }
 
     // Keep submitted values visible after validation errors.
@@ -79,7 +147,6 @@ if (is_post()) {
         'max_grade' => $maxGrade,
     ]);
 }
-
 $courseBreadcrumb = [
     'label' => $assignment['course_code'],
     'url' => url('instructor/course.php?id=' . $assignment['course_id']),
@@ -98,8 +165,11 @@ require __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="content-panel">
-            <form method="post">
+            <form method="post" id="edit-assignment-form">
                 <?= csrf_field() ?>
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="return_page" value="<?= $returnPage ?>">
                 <div class="mb-3">
                     <label class="form-label" for="title">Title</label>
                     <input
@@ -163,14 +233,31 @@ require __DIR__ . '/../includes/header.php';
                     <div class="alert alert-danger mt-3"><?= e(implode(' ', $errors)) ?></div>
                 <?php endif; ?>
 
-                <div class="d-flex gap-2 mt-4">
-                    <button class="btn btn-ink" type="submit">Save changes</button>
+            </form>
+
+            <div class="edit-assignment-actions mt-4">
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-ink" type="submit" form="edit-assignment-form">Save changes</button>
                     <a
                         class="btn btn-outline-ink"
-                        href="<?= e(url('instructor/assignments.php?course_id=' . $assignment['course_id'])) ?>"
+                        href="<?= e(url(
+                            'instructor/assignments.php?course_id=' . $assignment['course_id']
+                            . '&page=' . $returnPage
+                        )) ?>"
                     >Cancel</a>
                 </div>
-            </form>
+
+                <form
+                    method="post"
+                    onsubmit="return confirm('Delete this assignment and all related submissions and grades?');"
+                >
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?= $id ?>">
+                    <input type="hidden" name="return_page" value="<?= $returnPage ?>">
+                    <button class="btn btn-delete" type="submit">Delete assignment</button>
+                </form>
+            </div>
         </div>
     </div>
 </section>

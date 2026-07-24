@@ -233,31 +233,14 @@ require __DIR__ . '/includes/header.php';
                         </article>
                     <?php endforeach; ?>
 
-                    <?php if ($totalPages > 1): ?>
-                        <nav class="discussion-pagination" aria-label="Discussion pages">
-                            <?php if ($page > 1): ?>
-                                <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . ($page - 1))) ?>">Previous</a>
-                            <?php else: ?>
-                                <span class="disabled" aria-disabled="true">Previous</span>
-                            <?php endif; ?>
-
-                            <div class="discussion-page-numbers">
-                                <?php for ($pageNumber = 1; $pageNumber <= $totalPages; $pageNumber++): ?>
-                                    <?php if ($pageNumber === $page): ?>
-                                        <span class="current" aria-current="page"><?= $pageNumber ?></span>
-                                    <?php else: ?>
-                                        <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . $pageNumber)) ?>"><?= $pageNumber ?></a>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-                            </div>
-
-                            <?php if ($page < $totalPages): ?>
-                                <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . ($page + 1))) ?>">Next</a>
-                            <?php else: ?>
-                                <span class="disabled" aria-disabled="true">Next</span>
-                            <?php endif; ?>
-                        </nav>
-                    <?php endif; ?>
+                    <?php
+                    $paginationPage = $page;
+                    $paginationTotalPages = $totalPages;
+                    $paginationPath = 'discussions.php';
+                    $paginationParameters = ['course_id' => $courseId];
+                    $paginationLabel = 'Discussion pages';
+                    require __DIR__ . '/includes/pagination.php';
+                    ?>
                 <?php endif; ?>
             </div>
         </div>

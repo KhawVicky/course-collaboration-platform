@@ -6,6 +6,8 @@ require_once __DIR__ . '/../includes/auth.php';
 
 $user = require_role('instructor');
 $courseId = positive_id($_GET['course_id'] ?? $_POST['course_id'] ?? null);
+$page = positive_id($_GET['page'] ?? $_POST['page'] ?? null) ?? 1;
+$announcementsPerPage = 6;
 
 // Load the courses owned by this instructor.
 $courseStatement = database()->prepare(
@@ -54,20 +56,34 @@ if (is_post()) {
     }
 }
 
-// Load announcements for the selected owned course.
+// Count announcements before loading only the requested six-item page.
 $announcements = [];
+$totalAnnouncements = 0;
+$totalPages = 1;
 if ($selectedCourse) {
+    $countStatement = database()->prepare(
+        'SELECT COUNT(*) FROM announcements WHERE course_id = :course'
+    );
+    $countStatement->execute(['course' => $courseId]);
+    $totalAnnouncements = (int) $countStatement->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalAnnouncements / $announcementsPerPage));
+    $page = min($page, $totalPages);
+    $offset = ($page - 1) * $announcementsPerPage;
+
     $announcementStatement = database()->prepare(
         'SELECT an.*, u.full_name AS author_name
          FROM announcements an
          JOIN users u ON u.id = an.author_id
-         WHERE course_id = :course
-         ORDER BY posted_at DESC'
+         WHERE an.course_id = :course
+         ORDER BY an.posted_at DESC, an.id DESC
+         LIMIT :limit OFFSET :offset'
     );
-    $announcementStatement->execute(['course' => $courseId]);
+    $announcementStatement->bindValue(':course', $courseId, PDO::PARAM_INT);
+    $announcementStatement->bindValue(':limit', $announcementsPerPage, PDO::PARAM_INT);
+    $announcementStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $announcementStatement->execute();
     $announcements = $announcementStatement->fetchAll();
 }
-
 $courseBreadcrumb = $selectedCourse ? [
     'label' => $selectedCourse['course_code'],
     'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
@@ -135,7 +151,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="content-panel">
                     <div class="panel-heading">
                         <h2><?= e($selectedCourse ? $selectedCourse['course_code'] . ' updates' : 'Select a course') ?></h2>
-                        <span class="count-pill"><?= count($announcements) ?></span>
+                        <span class="count-pill"><?= $totalAnnouncements ?></span>
                     </div>
 
                     <?php if ($announcements === []): ?>
@@ -155,6 +171,15 @@ require __DIR__ . '/../includes/header.php';
                             </article>
                         <?php endforeach; ?>
                     <?php endif; ?>
+
+                    <?php
+                    $paginationPage = $page;
+                    $paginationTotalPages = $totalPages;
+                    $paginationPath = 'instructor/announcements.php';
+                    $paginationParameters = ['course_id' => $courseId];
+                    $paginationLabel = 'Announcement pages';
+                    require __DIR__ . '/../includes/pagination.php';
+                    ?>
                 </div>
             </div>
         </div>

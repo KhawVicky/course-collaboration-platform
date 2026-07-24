@@ -239,6 +239,9 @@ textarea.form-control { min-height: 130px; }
 .app-shell { min-height: calc(100vh - 172px); padding: 3.5rem 0 7rem; }
 .page-heading { align-items: end; border-bottom: 1px solid var(--line); display: flex; gap: 2rem; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 2rem; }
 .page-heading h1 { font-family: var(--display); font-size: clamp(2.7rem, 5vw, 5.1rem); letter-spacing: -.045em; line-height: .9; margin: 0; }
+.course-filter-bar { align-items: end; background: var(--paper); border: 1px solid var(--line); display: flex; gap: 1.5rem; justify-content: space-between; padding: 1rem 1.25rem; }
+.course-filter-bar form { max-width: 320px; width: 100%; }
+.course-filter-bar .count-pill { flex: 0 0 auto; }
 .stat-card { background: var(--ink); color: var(--paper); display: flex; flex-direction: column; min-height: 160px; padding: 1.5rem; }
 .stat-card-sun { background: var(--sun); color: var(--ink); }
 .stat-card span { font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
@@ -334,7 +337,12 @@ textarea.form-control { min-height: 130px; }
 .enrolled-card p, .enrolled-card small { color: var(--muted); }
 .resource-list > a, .assignment-list > a, .assignment-admin { align-items: center; border-bottom: 1px solid var(--line); color: var(--ink); display: flex; gap: 1rem; justify-content: space-between; padding: 1.2rem .2rem; text-decoration: none; }
 .resource-list > a:first-child, .assignment-list > a:first-child { border-top: 1px solid var(--line); }
-.resource-list div, .assignment-list div, .assignment-admin > div { display: flex; flex-direction: column; }
+.resource-list > a > div, .assignment-list > a > div, .assignment-admin > .assignment-summary { display: flex; flex-direction: column; }
+.assignment-summary { flex: 1 1 auto; min-width: 0; }
+.edit-assignment-actions { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
+.edit-assignment-actions form { margin: 0; }
+.btn-delete { border: 1px solid #91362b; color: #91362b; }
+.btn-delete:hover, .btn-delete:focus-visible { background: #91362b; border-color: #91362b; color: var(--paper); }
 .resource-list small, .assignment-list small, .assignment-admin small { color: var(--muted); margin-top: .25rem; }
 .resource-list > a > span, .assignment-list > a > span { color: var(--forest); font-size: .75rem; font-weight: 700; }
 .announcement { border-bottom: 1px solid var(--line); padding: 1.5rem 0; }
@@ -504,6 +512,9 @@ textarea.form-control { min-height: 130px; }
     .auth-frame { box-shadow: 8px 8px 0 rgba(31,73,56,.14); }
     .auth-story { min-height: 380px; }
     .page-heading { align-items: flex-start; flex-direction: column; }
+    .course-filter-bar { align-items: stretch; flex-direction: column; }
+    .course-filter-bar form { max-width: none; }
+    .course-filter-bar .count-pill { align-self: flex-start; }
     .page-heading .btn { width: 100%; }
     .panel-heading { align-items: flex-start; flex-direction: column; }
     .action-grid, .student-actions { grid-template-columns: repeat(2,1fr); }

@@ -6,6 +6,8 @@ require_once __DIR__ . '/../includes/upload.php';
 
 $user = require_role('instructor');
 $courseId = positive_id($_GET['course_id'] ?? $_POST['course_id'] ?? null);
+$page = positive_id($_GET['page'] ?? $_POST['page'] ?? null) ?? 1;
+$materialsPerPage = 6;
 
 // Load the instructor's courses for the selector.
 $courseStatement = database()->prepare(
@@ -79,19 +81,33 @@ if (is_post()) {
     }
 }
 
-// Load materials from the selected owned course.
+// Count materials before loading only the requested six-item page.
 $materials = [];
+$totalMaterials = 0;
+$totalPages = 1;
 if ($selectedCourse) {
+    $countStatement = database()->prepare(
+        'SELECT COUNT(*) FROM course_materials WHERE course_id = :course'
+    );
+    $countStatement->execute(['course' => $courseId]);
+    $totalMaterials = (int) $countStatement->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalMaterials / $materialsPerPage));
+    $page = min($page, $totalPages);
+    $offset = ($page - 1) * $materialsPerPage;
+
     $materialStatement = database()->prepare(
         'SELECT *
          FROM course_materials
-         WHERE course_id = :course_id
-         ORDER BY uploaded_at DESC'
+         WHERE course_id = :course
+         ORDER BY uploaded_at DESC, id DESC
+         LIMIT :limit OFFSET :offset'
     );
-    $materialStatement->execute(['course_id' => $courseId]);
+    $materialStatement->bindValue(':course', $courseId, PDO::PARAM_INT);
+    $materialStatement->bindValue(':limit', $materialsPerPage, PDO::PARAM_INT);
+    $materialStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $materialStatement->execute();
     $materials = $materialStatement->fetchAll();
 }
-
 $courseBreadcrumb = $selectedCourse ? [
     'label' => $selectedCourse['course_code'],
     'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
@@ -181,7 +197,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="content-panel">
                     <div class="panel-heading">
                         <h2><?= e($selectedCourse ? $selectedCourse['course_code'] . ' materials' : 'Select a course') ?></h2>
-                        <span class="count-pill"><?= count($materials) ?></span>
+                        <span class="count-pill"><?= $totalMaterials ?></span>
                     </div>
 
                     <?php if (!$selectedCourse): ?>
@@ -211,6 +227,15 @@ require __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
+
+                    <?php
+                    $paginationPage = $page;
+                    $paginationTotalPages = $totalPages;
+                    $paginationPath = 'instructor/materials.php';
+                    $paginationParameters = ['course_id' => $courseId];
+                    $paginationLabel = 'Material pages';
+                    require __DIR__ . '/../includes/pagination.php';
+                    ?>
                 </div>
             </div>
         </div>

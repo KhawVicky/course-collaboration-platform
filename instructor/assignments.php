@@ -6,6 +6,8 @@ require_once __DIR__ . '/../includes/auth.php';
 
 $user = require_role('instructor');
 $courseId = positive_id($_GET['course_id'] ?? $_POST['course_id'] ?? null);
+$page = positive_id($_GET['page'] ?? $_POST['page'] ?? null) ?? 1;
+$assignmentsPerPage = 6;
 
 // Load the instructor's courses and validate the selected course.
 $courseStatement = database()->prepare(
@@ -77,9 +79,20 @@ if (is_post()) {
     }
 }
 
-// Load assignments and their latest-submission counts.
+// Count the assignments before loading only the requested six-item page.
 $assignments = [];
+$totalAssignments = 0;
+$totalPages = 1;
 if ($selectedCourse) {
+    $countStatement = database()->prepare(
+        'SELECT COUNT(*) FROM assignments WHERE course_id = :course'
+    );
+    $countStatement->execute(['course' => $courseId]);
+    $totalAssignments = (int) $countStatement->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalAssignments / $assignmentsPerPage));
+    $page = min($page, $totalPages);
+    $offset = ($page - 1) * $assignmentsPerPage;
+
     $assignmentStatement = database()->prepare(
         'SELECT a.*,
             (
@@ -89,12 +102,15 @@ if ($selectedCourse) {
             ) AS submission_count
          FROM assignments a
          WHERE course_id = :course
-         ORDER BY deadline'
+         ORDER BY deadline, id
+         LIMIT :limit OFFSET :offset'
     );
-    $assignmentStatement->execute(['course' => $courseId]);
+    $assignmentStatement->bindValue(':course', $courseId, PDO::PARAM_INT);
+    $assignmentStatement->bindValue(':limit', $assignmentsPerPage, PDO::PARAM_INT);
+    $assignmentStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $assignmentStatement->execute();
     $assignments = $assignmentStatement->fetchAll();
 }
-
 $courseBreadcrumb = $selectedCourse ? [
     'label' => $selectedCourse['course_code'],
     'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
@@ -217,7 +233,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="content-panel">
                     <div class="panel-heading">
                         <h2><?= e($selectedCourse ? $selectedCourse['course_code'] . ' assignments' : 'Select a course') ?></h2>
-                        <span class="count-pill"><?= count($assignments) ?></span>
+                        <span class="count-pill"><?= $totalAssignments ?></span>
                     </div>
 
                     <?php if ($assignments === []): ?>
@@ -228,7 +244,7 @@ require __DIR__ . '/../includes/header.php';
                         <div class="assignment-list">
                             <?php foreach ($assignments as $assignment): ?>
                                 <div class="assignment-admin">
-                                    <div>
+                                    <div class="assignment-summary">
                                         <strong><?= e($assignment['title']) ?></strong>
                                         <small>
                                             Due <?= e(format_datetime($assignment['deadline'])) ?>
@@ -237,11 +253,23 @@ require __DIR__ . '/../includes/header.php';
                                     </div>
                                     <a
                                         class="btn btn-sm btn-outline-ink"
-                                        href="<?= e(url('instructor/edit_assignment.php?id=' . $assignment['id'])) ?>"
+                                        href="<?= e(url(
+                                            'instructor/edit_assignment.php?id=' . $assignment['id']
+                                            . '&page=' . $page
+                                        )) ?>"
                                     >Edit</a>
                                 </div>
                             <?php endforeach; ?>
                         </div>
+
+                        <?php
+                        $paginationPage = $page;
+                        $paginationTotalPages = $totalPages;
+                        $paginationPath = 'instructor/assignments.php';
+                        $paginationParameters = ['course_id' => $courseId];
+                        $paginationLabel = 'Assignment pages';
+                        require __DIR__ . '/../includes/pagination.php';
+                        ?>
                     <?php endif; ?>
                 </div>
             </div>

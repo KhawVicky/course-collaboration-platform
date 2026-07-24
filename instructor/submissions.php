@@ -7,6 +7,8 @@ require_once __DIR__ . '/../includes/auth.php';
 $user = require_role('instructor');
 $courseId = positive_id($_GET['course_id'] ?? null);
 $assignmentId = positive_id($_GET['assignment_id'] ?? null);
+$page = positive_id($_GET['page'] ?? null) ?? 1;
+$submissionsPerPage = 6;
 
 // Load courses owned by the current instructor.
 $courseStatement = database()->prepare(
@@ -58,34 +60,51 @@ if ($assignmentId) {
     }
 }
 
-// Build the latest-submission query from the selected filters.
-$sql =
-    'SELECT s.*, u.full_name AS student_name, u.email,
-            a.title AS assignment_title, a.max_grade,
-            c.course_code, g.grade_value, g.feedback
-     FROM submissions s
+// Build shared filters for both the total count and six-item result page.
+$fromSql =
+    ' FROM submissions s
      JOIN users u ON u.id = s.student_id
      JOIN assignments a ON a.id = s.assignment_id
      JOIN courses c ON c.id = a.course_id
      LEFT JOIN grades g ON g.submission_id = s.id
      WHERE c.instructor_id = :owner
        AND s.is_latest = 1';
-$parameters = ['owner' => $user['id']];
+$parameters = ['owner' => (int) $user['id']];
 
 if ($courseId) {
-    $sql .= ' AND c.id = :course';
+    $fromSql .= ' AND c.id = :course';
     $parameters['course'] = $courseId;
 }
 if ($assignmentId) {
-    $sql .= ' AND a.id = :assignment';
+    $fromSql .= ' AND a.id = :assignment';
     $parameters['assignment'] = $assignmentId;
 }
 
-$sql .= ' ORDER BY s.submitted_at DESC';
-$submissionStatement = database()->prepare($sql);
-$submissionStatement->execute($parameters);
-$submissions = $submissionStatement->fetchAll();
+$countStatement = database()->prepare('SELECT COUNT(*)' . $fromSql);
+foreach ($parameters as $name => $value) {
+    $countStatement->bindValue(':' . $name, $value, PDO::PARAM_INT);
+}
+$countStatement->execute();
+$totalSubmissions = (int) $countStatement->fetchColumn();
+$totalPages = max(1, (int) ceil($totalSubmissions / $submissionsPerPage));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $submissionsPerPage;
 
+$sql =
+    'SELECT s.*, u.full_name AS student_name, u.email,
+            a.title AS assignment_title, a.max_grade,
+            c.course_code, g.grade_value, g.feedback'
+    . $fromSql
+    . ' ORDER BY s.submitted_at DESC, s.id DESC
+        LIMIT :limit OFFSET :offset';
+$submissionStatement = database()->prepare($sql);
+foreach ($parameters as $name => $value) {
+    $submissionStatement->bindValue(':' . $name, $value, PDO::PARAM_INT);
+}
+$submissionStatement->bindValue(':limit', $submissionsPerPage, PDO::PARAM_INT);
+$submissionStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+$submissionStatement->execute();
+$submissions = $submissionStatement->fetchAll();
 $courseBreadcrumb = $selectedCourse ? [
     'label' => $selectedCourse['course_code'],
     'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
@@ -149,7 +168,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="content-panel">
             <div class="panel-heading">
                 <h2>Latest attempts</h2>
-                <span class="count-pill"><?= count($submissions) ?></span>
+                <span class="count-pill"><?= $totalSubmissions ?></span>
             </div>
 
             <?php if ($submissions === []): ?>
@@ -203,6 +222,21 @@ require __DIR__ . '/../includes/header.php';
                     </table>
                 </div>
             <?php endif; ?>
+
+            <?php
+            $paginationPage = $page;
+            $paginationTotalPages = $totalPages;
+            $paginationPath = 'instructor/submissions.php';
+            $paginationParameters = [];
+            if ($courseId) {
+                $paginationParameters['course_id'] = $courseId;
+            }
+            if ($assignmentId) {
+                $paginationParameters['assignment_id'] = $assignmentId;
+            }
+            $paginationLabel = 'Submission pages';
+            require __DIR__ . '/../includes/pagination.php';
+            ?>
         </div>
     </div>
 </section>
