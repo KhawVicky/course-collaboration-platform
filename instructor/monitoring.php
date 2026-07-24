@@ -6,6 +6,8 @@ require_once __DIR__ . '/../includes/auth.php';
 
 $user = require_role('instructor');
 $courseId = positive_id($_GET['course_id'] ?? null);
+$page = positive_id($_GET['page'] ?? null) ?? 1;
+$studentsPerPage = 6;
 
 // Load courses owned by the current instructor.
 $courseStatement = database()->prepare(
@@ -18,9 +20,26 @@ $courseStatement->execute(['owner' => $user['id']]);
 $courses = $courseStatement->fetchAll();
 $selectedCourse = $courseId ? owned_course($courseId, (int) $user['id']) : null;
 $students = [];
+$totalStudents = 0;
+$totalPages = 1;
 
 if ($selectedCourse) {
-    // Calculate discussion, submission, and grade totals for each student.
+    // Count active enrolments before calculating participation for one page.
+    $countStatement = database()->prepare(
+        'SELECT COUNT(*)
+         FROM enrolments
+         WHERE course_id = :course AND status = :status'
+    );
+    $countStatement->execute([
+        'course' => $courseId,
+        'status' => 'active',
+    ]);
+    $totalStudents = (int) $countStatement->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalStudents / $studentsPerPage));
+    $page = min($page, $totalPages);
+    $offset = ($page - 1) * $studentsPerPage;
+
+    // Calculate discussion, submission, and grade totals for the current student page.
     $monitoringStatement = database()->prepare(
         "SELECT u.id, u.full_name, u.email,
             (
@@ -69,21 +88,18 @@ if ($selectedCourse) {
          FROM enrolments e
          JOIN users u ON u.id = e.student_id
          WHERE e.course_id = :course7 AND e.status = :status
-         ORDER BY u.full_name"
+         ORDER BY u.full_name
+         LIMIT :limit OFFSET :offset"
     );
-    $monitoringStatement->execute([
-        'course1' => $courseId,
-        'course2' => $courseId,
-        'course3' => $courseId,
-        'course4' => $courseId,
-        'course5' => $courseId,
-        'course6' => $courseId,
-        'course7' => $courseId,
-        'status' => 'active',
-    ]);
+    foreach (range(1, 7) as $courseParameter) {
+        $monitoringStatement->bindValue(':course' . $courseParameter, $courseId, PDO::PARAM_INT);
+    }
+    $monitoringStatement->bindValue(':status', 'active');
+    $monitoringStatement->bindValue(':limit', $studentsPerPage, PDO::PARAM_INT);
+    $monitoringStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $monitoringStatement->execute();
     $students = $monitoringStatement->fetchAll();
 }
-
 $courseBreadcrumb = $selectedCourse ? [
     'label' => $selectedCourse['course_code'],
     'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
@@ -126,7 +142,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="content-panel">
             <div class="panel-heading">
                 <h2><?= e($selectedCourse ? $selectedCourse['course_code'] . ' participation' : 'Select a course') ?></h2>
-                <span class="count-pill"><?= count($students) ?></span>
+                <span class="count-pill"><?= $totalStudents ?></span>
             </div>
 
             <?php if ($students === []): ?>
@@ -167,6 +183,15 @@ require __DIR__ . '/../includes/header.php';
                     </table>
                 </div>
             <?php endif; ?>
+
+            <?php
+            $paginationPage = $page;
+            $paginationTotalPages = $totalPages;
+            $paginationPath = 'instructor/monitoring.php';
+            $paginationParameters = ['course_id' => $courseId];
+            $paginationLabel = 'Monitoring pages';
+            require __DIR__ . '/../includes/pagination.php';
+            ?>
         </div>
     </div>
 </section>

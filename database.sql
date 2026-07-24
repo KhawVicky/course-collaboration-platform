@@ -569,3 +569,261 @@ INSERT INTO discussion_replies (thread_id, author_id, content, created_at) VALUE
         'Use the profile page to keep your availability visible to the team.',
         DATE_SUB(NOW(), INTERVAL 12 HOUR)
     );
+
+
+-- Extended demo dataset keeps all main feature lists above ten records.
+START TRANSACTION;
+
+-- Add reusable student demo accounts. They use the same Student123! password hash as the main student account.
+INSERT IGNORE INTO users (full_name, email, password_hash, role) VALUES
+    ('Ethan Lim', 'demo.student01@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Farah Nordin', 'demo.student02@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Grace Tan', 'demo.student03@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Haris Ahmad', 'demo.student04@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Imani Lee', 'demo.student05@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Jason Wong', 'demo.student06@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Kavya Menon', 'demo.student07@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Lucas Ng', 'demo.student08@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student'),
+    ('Mei Chen', 'demo.student09@example.com', '$2y$10$lVJqVumQAMMoGA2g9UeZ5eFOzIQCLmqULh2X8Gcf2dPwLvkWQuWTC', 'student');
+
+-- Give every demo student a membership and collaboration profile.
+INSERT INTO memberships (user_id, membership_status)
+SELECT id, IF(MOD(id, 2) = 0, 'Member', 'Non-member')
+FROM users
+WHERE email LIKE 'demo.student%@example.com'
+ON DUPLICATE KEY UPDATE membership_status = VALUES(membership_status);
+
+INSERT INTO student_profiles (user_id, skills, collaboration_mode, availability)
+SELECT
+    id,
+    'PHP, MySQL, testing, documentation, teamwork',
+    IF(MOD(id, 2) = 0, 'Online', 'Offline'),
+    'Weekdays after 6:00 PM and Saturday mornings'
+FROM users
+WHERE email LIKE 'demo.student%@example.com'
+ON DUPLICATE KEY UPDATE
+    skills = VALUES(skills),
+    collaboration_mode = VALUES(collaboration_mode),
+    availability = VALUES(availability);
+
+-- Extend Daniel Instructor's owned-course list beyond ten courses.
+INSERT IGNORE INTO courses (instructor_id, course_code, title, description, is_published) VALUES
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CUX201', 'User Experience Foundations', 'Research, prototyping, usability evaluation, and accessible interface design.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CDB220', 'Database Systems', 'Relational modelling, SQL, transactions, indexing, and database administration.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CSEC240', 'Web Application Security', 'Secure coding, authentication, authorization, validation, and common web threats.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CQA260', 'Software Quality Assurance', 'Quality planning, reviews, testing strategy, metrics, and continuous improvement.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CDEV280', 'DevOps Fundamentals', 'Version control, automation, continuous integration, delivery, and observability.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CREQ300', 'Requirements Engineering', 'Stakeholder analysis, elicitation, specification, validation, and change control.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CARCH320', 'Software Architecture', 'Architectural drivers, patterns, quality attributes, and technical decisions.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CDATA340', 'Applied Data Analytics', 'Data preparation, exploratory analysis, visualisation, and responsible interpretation.', 1),
+    ((SELECT id FROM users WHERE email = 'instructor@example.com'), 'CPRO360', 'Software Project Management', 'Planning, estimation, risk management, communication, and project delivery.', 1);
+
+-- Enrol all demo students in CSDM301 so monitoring contains more than ten students.
+INSERT IGNORE INTO enrolments (course_id, student_id, status, enrolled_at)
+SELECT c.id, u.id, 'active', TIMESTAMPADD(DAY, -45, NOW())
+FROM courses c
+JOIN users u ON u.email LIKE 'demo.student%@example.com'
+WHERE c.course_code = 'CSDM301';
+
+-- Reuse one existing PDF for additional material records without copying the file.
+INSERT INTO course_materials
+    (course_id, uploaded_by, title, description, stored_filename,
+     original_filename, mime_type, file_size, uploaded_at)
+SELECT
+    c.id,
+    instructor.id,
+    demo.title,
+    demo.description,
+    '01bf4e31d31e327bf7a94006565fcbbc0994cdc1.pdf',
+    'Final Project Assessment Brief.pdf',
+    'application/pdf',
+    809551,
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW())
+FROM courses c
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT 1 AS sequence_no, 26 AS days_ago, 'Week 1: Development Life Cycles' AS title, 'Overview of predictive, iterative, incremental, and agile life cycles.' AS description
+    UNION ALL SELECT 2, 24, 'Week 2: Requirements and Scope', 'Techniques for defining scope and documenting useful requirements.'
+    UNION ALL SELECT 3, 22, 'Week 3: Modelling Workshop', 'Worked examples for structural and behavioural software models.'
+    UNION ALL SELECT 4, 20, 'Week 4: Architecture Decisions', 'Guidance for documenting architecture drivers and important trade-offs.'
+    UNION ALL SELECT 5, 18, 'Week 7: Quality Planning', 'Quality goals, review activities, test levels, and acceptance criteria.'
+    UNION ALL SELECT 6, 16, 'Week 8: Risk Management', 'A practical approach to identifying, analysing, and treating project risks.'
+    UNION ALL SELECT 7, 14, 'Week 9: Team Collaboration', 'Communication practices for healthy and productive software teams.'
+    UNION ALL SELECT 8, 12, 'Week 10: Release Readiness', 'A checklist for deployment preparation, handover, and support planning.'
+) demo
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1 FROM course_materials existing
+      WHERE existing.course_id = c.id AND existing.title = demo.title
+  );
+
+-- Add nine assessments so CSDM301 contains eleven assignments in a fresh import.
+INSERT INTO assignments (course_id, created_by, title, instructions, deadline, max_grade)
+SELECT
+    c.id,
+    instructor.id,
+    demo.title,
+    demo.instructions,
+    TIMESTAMPADD(DAY, demo.due_in_days, NOW()),
+    100.00
+FROM courses c
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT 10 AS due_in_days, 'Requirements Elicitation Review' AS title, 'Review an elicitation session and recommend three improvements.' AS instructions
+    UNION ALL SELECT 13, 'Sprint Planning Exercise', 'Prepare a sprint goal, selected backlog, estimates, and team capacity summary.'
+    UNION ALL SELECT 16, 'Risk Register Analysis', 'Create and analyse a risk register for a medium-sized software project.'
+    UNION ALL SELECT 19, 'Architecture Decision Record', 'Write an architecture decision record with context, options, and consequences.'
+    UNION ALL SELECT 22, 'Test Strategy Proposal', 'Propose a balanced test strategy covering unit, integration, system, and acceptance testing.'
+    UNION ALL SELECT 25, 'CI Pipeline Reflection', 'Evaluate a continuous integration pipeline and recommend practical improvements.'
+    UNION ALL SELECT 28, 'Code Review Portfolio', 'Submit examples of code review findings and explain the value of each recommendation.'
+    UNION ALL SELECT 31, 'Deployment Readiness Report', 'Assess operational, security, data, and support readiness for a planned release.'
+    UNION ALL SELECT 34, 'Team Retrospective', 'Reflect on team communication, delivery outcomes, and two actions for the next iteration.'
+) demo
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1 FROM assignments existing
+      WHERE existing.course_id = c.id AND existing.title = demo.title
+  );
+
+-- Reuse one existing submission PDF for nine different demo submissions.
+INSERT IGNORE INTO submissions
+    (assignment_id, student_id, attempt_number, stored_filename, original_filename,
+     mime_type, file_size, student_note, is_latest, submitted_at)
+SELECT
+    assignment.id,
+    student.id,
+    1,
+    'Software Development Methodologies - Software Process Models.pdf',
+    CONCAT(demo.title, ' - ', student.full_name, '.pdf'),
+    'application/pdf',
+    1149684,
+    'Demo submission prepared for instructor review.',
+    1,
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW())
+FROM courses c
+JOIN assignments assignment ON assignment.course_id = c.id
+JOIN (
+    SELECT 1 AS days_ago, 'Requirements Elicitation Review' AS title, 'demo.student01@example.com' AS student_email
+    UNION ALL SELECT 2, 'Sprint Planning Exercise', 'demo.student02@example.com'
+    UNION ALL SELECT 3, 'Risk Register Analysis', 'demo.student03@example.com'
+    UNION ALL SELECT 4, 'Architecture Decision Record', 'demo.student04@example.com'
+    UNION ALL SELECT 5, 'Test Strategy Proposal', 'demo.student05@example.com'
+    UNION ALL SELECT 6, 'CI Pipeline Reflection', 'demo.student06@example.com'
+    UNION ALL SELECT 7, 'Code Review Portfolio', 'demo.student07@example.com'
+    UNION ALL SELECT 8, 'Deployment Readiness Report', 'demo.student08@example.com'
+    UNION ALL SELECT 9, 'Team Retrospective', 'demo.student09@example.com'
+) demo ON demo.title = assignment.title
+JOIN users student ON student.email = demo.student_email
+WHERE c.course_code = 'CSDM301';
+
+-- Grade every new latest submission with simple feedback.
+INSERT INTO grades (submission_id, graded_by, grade_value, feedback, graded_at)
+SELECT
+    submission.id,
+    instructor.id,
+    78.00 + demo.grade_offset,
+    demo.feedback,
+    TIMESTAMPADD(HOUR, 12, submission.submitted_at)
+FROM submissions submission
+JOIN assignments assignment ON assignment.id = submission.assignment_id
+JOIN courses c ON c.id = assignment.course_id
+JOIN users student ON student.id = submission.student_id
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT 'demo.student01@example.com' AS student_email, 'Requirements Elicitation Review' AS title, 1 AS grade_offset, 'Clear observations and practical recommendations.' AS feedback
+    UNION ALL SELECT 'demo.student02@example.com', 'Sprint Planning Exercise', 2, 'Well-scoped sprint goal and realistic capacity planning.'
+    UNION ALL SELECT 'demo.student03@example.com', 'Risk Register Analysis', 3, 'Good prioritisation with useful mitigation actions.'
+    UNION ALL SELECT 'demo.student04@example.com', 'Architecture Decision Record', 4, 'Strong comparison of options and consequences.'
+    UNION ALL SELECT 'demo.student05@example.com', 'Test Strategy Proposal', 5, 'Balanced test coverage with clear responsibilities.'
+    UNION ALL SELECT 'demo.student06@example.com', 'CI Pipeline Reflection', 6, 'Thoughtful analysis of feedback speed and reliability.'
+    UNION ALL SELECT 'demo.student07@example.com', 'Code Review Portfolio', 7, 'Relevant findings supported by clear explanations.'
+    UNION ALL SELECT 'demo.student08@example.com', 'Deployment Readiness Report', 8, 'Comprehensive readiness checks and ownership details.'
+    UNION ALL SELECT 'demo.student09@example.com', 'Team Retrospective', 9, 'Honest reflection with specific improvement actions.'
+) demo ON demo.student_email = student.email AND demo.title = assignment.title
+LEFT JOIN grades existing ON existing.submission_id = submission.id
+WHERE c.course_code = 'CSDM301'
+  AND submission.is_latest = 1
+  AND existing.id IS NULL;
+
+-- Add course updates for announcement list testing.
+INSERT INTO announcements (course_id, author_id, title, content, posted_at)
+SELECT
+    c.id,
+    instructor.id,
+    demo.title,
+    demo.content,
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW())
+FROM courses c
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT 1 AS days_ago, 'Week 1 learning checklist' AS title, 'Complete the introductory reading and confirm your development environment is ready.' AS content
+    UNION ALL SELECT 2, 'Requirements workshop preparation', 'Bring one example stakeholder question and one possible acceptance criterion.'
+    UNION ALL SELECT 3, 'Modelling lab reminder', 'The modelling lab begins with a short diagram review before the practical exercise.'
+    UNION ALL SELECT 4, 'Architecture clinic available', 'Use the consultation slot to discuss architecture drivers and trade-offs.'
+    UNION ALL SELECT 5, 'Testing demonstration materials', 'The testing examples and supporting brief are now available in course materials.'
+    UNION ALL SELECT 6, 'Risk review activity', 'Update your project risk register before the next tutorial.'
+    UNION ALL SELECT 7, 'Code review pairing', 'Pairing groups have been published for the code review activity.'
+    UNION ALL SELECT 8, 'Release checklist discussion', 'Post one release-readiness question in the course discussion area.'
+    UNION ALL SELECT 9, 'Final consultation schedule', 'The final consultation schedule is available. Please prepare focused questions.'
+) demo
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1 FROM announcements existing
+      WHERE existing.course_id = c.id AND existing.title = demo.title
+  );
+
+-- Add discussion topics so five-per-page navigation has multiple pages.
+INSERT INTO discussion_threads (course_id, author_id, title, content, created_at)
+SELECT
+    c.id,
+    student.id,
+    demo.title,
+    demo.content,
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW())
+FROM courses c
+JOIN (
+    SELECT 1 AS days_ago, 'demo.student01@example.com' AS student_email, 'Best elicitation question' AS title, 'Which open question has helped you discover an important hidden requirement?' AS content
+    UNION ALL SELECT 2, 'demo.student02@example.com', 'Sprint goal examples', 'What makes a sprint goal specific enough to guide daily decisions?'
+    UNION ALL SELECT 3, 'demo.student03@example.com', 'Risk priority discussion', 'Should probability or impact carry more weight when project information is limited?'
+    UNION ALL SELECT 4, 'demo.student04@example.com', 'Architecture trade-offs', 'How do you explain a technical trade-off clearly to a non-technical stakeholder?'
+    UNION ALL SELECT 5, 'demo.student05@example.com', 'Testing balance', 'How would you divide effort across unit, integration, and system testing?'
+    UNION ALL SELECT 6, 'demo.student06@example.com', 'Fast pipeline feedback', 'Which pipeline stage should run first to give developers useful feedback quickly?'
+    UNION ALL SELECT 7, 'demo.student07@example.com', 'Constructive code reviews', 'What wording keeps a code review comment clear and respectful?'
+    UNION ALL SELECT 8, 'demo.student08@example.com', 'Release readiness evidence', 'What evidence should a team collect before approving a production release?'
+    UNION ALL SELECT 9, 'demo.student09@example.com', 'Retrospective actions', 'How can a team make sure retrospective actions are completed in the next sprint?'
+) demo
+JOIN users student ON student.email = demo.student_email
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1 FROM discussion_threads existing
+      WHERE existing.course_id = c.id AND existing.title = demo.title
+  );
+
+-- Add one useful reply to every new discussion topic.
+INSERT INTO discussion_replies (thread_id, author_id, content, created_at)
+SELECT
+    thread.id,
+    instructor.id,
+    demo.reply_content,
+    TIMESTAMPADD(HOUR, 6, thread.created_at)
+FROM discussion_threads thread
+JOIN courses c ON c.id = thread.course_id
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT 'Best elicitation question' AS title, 'Ask about the last time the current process failed and what the user needed at that moment.' AS reply_content
+    UNION ALL SELECT 'Sprint goal examples', 'A useful sprint goal describes the intended outcome without turning into a list of every task.'
+    UNION ALL SELECT 'Risk priority discussion', 'Use both values, then discuss uncertainty and urgency before choosing the response.'
+    UNION ALL SELECT 'Architecture trade-offs', 'Connect each option to cost, delivery time, reliability, and future change.'
+    UNION ALL SELECT 'Testing balance', 'Base the balance on product risk, change frequency, and the cost of late failure.'
+    UNION ALL SELECT 'Fast pipeline feedback', 'Run fast static checks and focused unit tests before slower integration suites.'
+    UNION ALL SELECT 'Constructive code reviews', 'Describe the observed issue, its impact, and one possible improvement without judging the author.'
+    UNION ALL SELECT 'Release readiness evidence', 'Include passing tests, security review, rollback steps, monitoring, ownership, and stakeholder approval.'
+    UNION ALL SELECT 'Retrospective actions', 'Assign one owner and due date, then review the action during the next planning session.'
+) demo ON demo.title = thread.title
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1 FROM discussion_replies existing
+      WHERE existing.thread_id = thread.id AND existing.content = demo.reply_content
+  );
+
+COMMIT;
