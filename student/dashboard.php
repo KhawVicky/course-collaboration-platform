@@ -26,6 +26,33 @@ $gradeStatement = database()->prepare(
 $gradeStatement->execute(['student_id' => $user['id']]);
 $gradeCount = (int) $gradeStatement->fetchColumn();
 
+// Find direct destinations for the dashboard activity cards.
+$nextAssignmentStatement = database()->prepare(
+    'SELECT a.id
+     FROM assignments a
+     JOIN enrolments e
+       ON e.course_id = a.course_id
+      AND e.student_id = :student_id
+      AND e.status = :status
+     WHERE a.deadline >= NOW()
+     ORDER BY a.deadline ASC
+     LIMIT 1'
+);
+$nextAssignmentStatement->execute(['student_id' => $user['id'], 'status' => 'active']);
+$nextAssignmentId = positive_id($nextAssignmentStatement->fetchColumn());
+
+$gradedAssignmentStatement = database()->prepare(
+    'SELECT a.id
+     FROM grades g
+     JOIN submissions s ON s.id = g.submission_id
+     JOIN assignments a ON a.id = s.assignment_id
+     WHERE s.student_id = :student_id AND s.is_latest = 1
+     ORDER BY g.graded_at DESC
+     LIMIT 1'
+);
+$gradedAssignmentStatement->execute(['student_id' => $user['id']]);
+$gradedAssignmentId = positive_id($gradedAssignmentStatement->fetchColumn());
+
 $recentCoursesStatement = database()->prepare(
     'SELECT c.id, c.course_code, c.title, u.full_name AS instructor_name
      FROM enrolments e
@@ -48,9 +75,27 @@ require __DIR__ . '/../includes/header.php';
             <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-ink" href="<?= e(url('student/profile.php')) ?>">Collaboration profile</a><a class="btn btn-sun" href="<?= e(url('student/courses.php')) ?>">Browse available courses</a></div>
         </div>
         <div class="row g-3 stat-grid">
-            <div class="col-md-4"><div class="stat-card"><span>Enrolled courses</span><strong><?= $enrolledCount ?></strong></div></div>
-            <div class="col-md-4"><div class="stat-card stat-card-sun"><span>Open assignments</span><strong><?= $openAssignments ?></strong></div></div>
-            <div class="col-md-4"><div class="stat-card"><span>Graded submissions</span><strong><?= $gradeCount ?></strong></div></div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <span>Enrolled courses</span>
+                    <strong><?= $enrolledCount ?></strong>
+                    <small>View my courses</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card stat-card-sun">
+                    <span>Open assignments</span>
+                    <strong><?= $openAssignments ?></strong>
+                    <small><?= $nextAssignmentId ? 'Open next assignment' : 'View my courses' ?></small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <span>Graded submissions</span>
+                    <strong><?= $gradeCount ?></strong>
+                    <small><?= $gradedAssignmentId ? 'View latest grade' : 'View my courses' ?></small>
+                </div>
+            </div>
         </div>
         <div class="content-panel mt-4">
             <div class="panel-heading"><div><p class="eyebrow mb-2">Continue learning</p><h2>Your recent courses</h2></div><a href="<?= e(url('student/enrolled.php')) ?>">View all</a></div>

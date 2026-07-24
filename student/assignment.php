@@ -201,6 +201,10 @@ $canSubmit = $isOpen
         || $remainingResubmissions > 0
     );
 
+$courseBreadcrumb = [
+    'label' => $assignment['course_code'],
+    'url' => url('student/course.php?id=' . $assignment['course_id']),
+];
 $pageTitle = $assignment['title'];
 $activePage = 'my-courses';
 require __DIR__ . '/../includes/header.php';
@@ -265,9 +269,9 @@ require __DIR__ . '/../includes/header.php';
             </div>
         <?php endif; ?>
 
-        <div class="row g-4 mt-1">
+        <div class="row g-4 assignment-card-row">
             <div class="col-lg-7">
-                <div class="content-panel">
+                <div class="content-panel assignment-task-panel h-100">
                     <div class="deadline-banner <?= $isOpen ? 'open' : 'closed' ?>">
                         <span><?= $isOpen ? 'Submissions open' : 'Submissions closed' ?></span>
                         <strong>Deadline &middot; <?= e(format_datetime($assignment['deadline'])) ?></strong>
@@ -275,43 +279,8 @@ require __DIR__ . '/../includes/header.php';
                     <h2 class="mt-4">Instructions</h2>
                     <p class="preserve-lines"><?= nl2br(e($assignment['instructions'])) ?></p>
                     <p><strong>Maximum grade:</strong> <?= e($assignment['max_grade']) ?></p>
-                </div>
 
-                <div class="content-panel mt-4">
-                    <div class="panel-heading">
-                        <h2>Attempt history</h2>
-                        <span class="count-pill"><?= count($submissions) ?></span>
-                    </div>
 
-                    <?php if ($submissions === []): ?>
-                        <p class="text-muted">No submission yet.</p>
-                    <?php else: ?>
-                        <div class="timeline-list">
-                            <?php foreach ($submissions as $submission): ?>
-                                <article class="timeline-item <?= $submission['is_latest'] ? 'latest' : '' ?>">
-                                    <span>Attempt <?= $submission['attempt_number'] ?></span>
-                                    <div>
-                                        <strong><?= e($submission['original_filename']) ?></strong>
-                                        <small>
-                                            <?= e(format_datetime($submission['submitted_at'])) ?>
-                                            <?= $submission['is_latest'] ? ' - Latest attempt' : '' ?>
-                                        </small>
-                                        <?php if ($submission['student_note']): ?>
-                                            <p><?= e($submission['student_note']) ?></p>
-                                        <?php endif; ?>
-                                    </div>
-                                    <a href="<?= e(url('download.php?type=submission&id=' . $submission['id'])) ?>">
-                                        Download
-                                    </a>
-                                </article>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <div class="col-lg-5">
-                <div class="content-panel">
                     <p class="eyebrow"><?= $latest ? 'Resubmit' : 'Submit assignment' ?></p>
 
                     <?php if (!$isOpen): ?>
@@ -360,9 +329,42 @@ require __DIR__ . '/../includes/header.php';
                         </form>
                     <?php endif; ?>
                 </div>
+            </div>
+            <div class="col-lg-5 assignment-side-column <?= $latest ? 'has-grade' : '' ?>">
+                <div class="content-panel assignment-history-panel">
+                    <div class="panel-heading">
+                        <h2>Attempt history</h2>
+                        <span class="count-pill"><?= count($submissions) ?></span>
+                    </div>
+
+                    <?php if ($submissions === []): ?>
+                        <p class="text-muted">No submission yet.</p>
+                    <?php else: ?>
+                        <div class="timeline-list">
+                            <?php foreach ($submissions as $submission): ?>
+                                <article class="timeline-item <?= $submission['is_latest'] ? 'latest' : '' ?>">
+                                    <span>Attempt <?= $submission['attempt_number'] ?></span>
+                                    <div>
+                                        <strong><?= e($submission['original_filename']) ?></strong>
+                                        <small>
+                                            <?= e(format_datetime($submission['submitted_at'])) ?>
+                                            <?= $submission['is_latest'] ? ' - Latest attempt' : '' ?>
+                                        </small>
+                                        <?php if ($submission['student_note']): ?>
+                                            <p><?= e($submission['student_note']) ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                    <a href="<?= e(url('download.php?type=submission&id=' . $submission['id'])) ?>">
+                                        Download
+                                    </a>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
                 <?php if ($latest): ?>
-                    <div class="content-panel mt-4 grade-card">
+                    <div class="content-panel grade-card">
                         <p class="eyebrow">Latest submission status</p>
                         <h2>
                             <?= $latest['grade_value'] !== null

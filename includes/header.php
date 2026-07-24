@@ -9,6 +9,47 @@ $pageTitle = $pageTitle ?? 'Learn together';
 $activePage = $activePage ?? 'home';
 $authenticatedUser = current_user();
 $flashes = pull_flashes();
+// Build shared breadcrumbs from the active page and current page title.
+$breadcrumbSections = [
+    'browse-courses' => ['label' => 'Browse courses', 'url' => url('student/courses.php')],
+    'my-courses' => ['label' => 'My courses', 'url' => url('student/enrolled.php')],
+    'instructor-courses' => ['label' => 'My courses', 'url' => url('instructor/courses.php')],
+];
+$courseBreadcrumb = $courseBreadcrumb ?? null;
+$breadcrumbs = [];
+
+if ($activePage !== 'home') {
+    $isDashboard = in_array($activePage, ['student-dashboard', 'instructor-dashboard'], true);
+
+    if ($authenticatedUser !== null) {
+        // Signed-in pages always start from the user's dashboard.
+        $breadcrumbs[] = [
+            'label' => 'Dashboard',
+            'url' => $isDashboard ? null : url(dashboard_path($authenticatedUser)),
+        ];
+    } else {
+        $breadcrumbs[] = ['label' => 'Home', 'url' => url()];
+    }
+
+    if (!$isDashboard) {
+        $section = $breadcrumbSections[$activePage] ?? null;
+
+        if ($section !== null && $section['label'] !== $pageTitle) {
+            $breadcrumbs[] = $section;
+        }
+
+        // Keep the selected course between the course list and its current tool page.
+        if (
+            is_array($courseBreadcrumb)
+            && isset($courseBreadcrumb['label'], $courseBreadcrumb['url'])
+            && $courseBreadcrumb['label'] !== $pageTitle
+        ) {
+            $breadcrumbs[] = $courseBreadcrumb;
+        }
+
+        $breadcrumbs[] = ['label' => $pageTitle, 'url' => null];
+    }
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -32,7 +73,7 @@ $flashes = pull_flashes();
                 <span class="brand-mark" aria-hidden="true">CC</span>
                 <span>
                     <strong>Course Collaboration</strong>
-                    <small>Learn · Share · Progress</small>
+                    <small>Learn &middot; Share &middot; Progress</small>
                 </span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavigation" aria-controls="mainNavigation" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,10 +81,10 @@ $flashes = pull_flashes();
             </button>
             <div class="collapse navbar-collapse" id="mainNavigation">
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-                    <li class="nav-item">
-                        <a class="nav-link <?= $activePage === 'home' ? 'active' : '' ?>" <?= $activePage === 'home' ? 'aria-current="page"' : '' ?> href="<?= e(url()) ?>">Home</a>
-                    </li>
                     <?php if ($authenticatedUser === null): ?>
+                        <li class="nav-item">
+                            <a class="nav-link <?= $activePage === 'home' ? 'active' : '' ?>" <?= $activePage === 'home' ? 'aria-current="page"' : '' ?> href="<?= e(url()) ?>">Home</a>
+                        </li>
                         <li class="nav-item"><a class="nav-link <?= $activePage === 'login' ? 'active' : '' ?>" href="<?= e(url('auth/login.php')) ?>">Sign in</a></li>
                         <li class="nav-item ms-lg-2"><a class="btn btn-ink" href="<?= e(url('auth/register.php')) ?>">Create account</a></li>
                     <?php elseif ($authenticatedUser['role'] === 'student'): ?>
@@ -75,10 +116,29 @@ $flashes = pull_flashes();
         </div>
     </nav>
 </header>
+<?php if ($breadcrumbs !== []): ?>
+    <nav class="breadcrumb-bar" aria-label="Breadcrumb">
+        <div class="container">
+            <ol class="app-breadcrumb">
+                <?php foreach ($breadcrumbs as $breadcrumb): ?>
+                    <li>
+                        <?php if ($breadcrumb['url'] !== null): ?>
+                            <a href="<?= e($breadcrumb['url']) ?>"><?= e($breadcrumb['label']) ?></a>
+                        <?php else: ?>
+                            <span aria-current="page"><?= e($breadcrumb['label']) ?></span>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+    </nav>
+<?php endif; ?>
 <?php if ($flashes !== []): ?>
     <div class="flash-stack container" aria-live="polite">
         <?php foreach ($flashes as $flash): ?>
-            <div class="alert alert-<?= e(in_array($flash['type'], ['success', 'danger', 'warning', 'info'], true) ? $flash['type'] : 'info') ?> alert-dismissible fade show" role="alert">
+            <div class="alert alert-
+            <?= e(in_array($flash['type'], ['success', 'danger', 'warning', 'info'], true) ?
+            $flash['type'] : 'info') ?> alert-dismissible fade show" role="alert">
                 <?= e($flash['message']) ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>

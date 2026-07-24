@@ -22,13 +22,17 @@ $assignmentStatement->execute([
 $assignment = $assignmentStatement->fetch()
     ?: not_found('Assignment not found or not owned.');
 $errors = [];
+$deadlineDate = date('Y-m-d', strtotime($assignment['deadline']));
+$deadlineTime = date('H:i', strtotime($assignment['deadline']));
 
 if (is_post()) {
     // Validate all editable assignment fields.
     verify_csrf();
     $title = clean_text($_POST['title'] ?? '');
     $instructions = clean_text($_POST['instructions'] ?? '');
-    $deadline = clean_text($_POST['deadline'] ?? '');
+    $deadlineDate = clean_text($_POST['deadline_date'] ?? '');
+    $deadlineTime = clean_text($_POST['deadline_time'] ?? '');
+    $deadline = $deadlineDate . 'T' . $deadlineTime;
     $maxGrade = filter_var($_POST['max_grade'] ?? null, FILTER_VALIDATE_FLOAT);
 
     if (mb_strlen($title) < 2 || mb_strlen($title) > 180) {
@@ -76,6 +80,10 @@ if (is_post()) {
     ]);
 }
 
+$courseBreadcrumb = [
+    'label' => $assignment['course_code'],
+    'url' => url('instructor/course.php?id=' . $assignment['course_id']),
+];
 $pageTitle = 'Edit assignment';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';
@@ -114,18 +122,29 @@ require __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="row g-3">
-                    <div class="col-md-7">
-                        <label class="form-label" for="deadline">Deadline</label>
+                    <div class="col-md-5">
+                        <label class="form-label" for="deadline_date">Deadline date</label>
                         <input
                             class="form-control"
-                            type="datetime-local"
-                            id="deadline"
-                            name="deadline"
-                            value="<?= e(date('Y-m-d\TH:i', strtotime($assignment['deadline']))) ?>"
+                            type="date"
+                            id="deadline_date"
+                            name="deadline_date"
+                            value="<?= e($deadlineDate) ?>"
                             required
                         >
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-3">
+                        <label class="form-label" for="deadline_time">Deadline time</label>
+                        <input
+                            class="form-control"
+                            type="time"
+                            id="deadline_time"
+                            name="deadline_time"
+                            value="<?= e($deadlineTime) ?>"
+                            required
+                        >
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label" for="max_grade">Maximum grade</label>
                         <input
                             class="form-control"

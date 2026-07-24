@@ -18,9 +18,7 @@ $courseStatement = database()->prepare(
 $courseStatement->execute(['owner' => $user['id']]);
 $courses = $courseStatement->fetchAll();
 
-if ($courseId) {
-    owned_course($courseId, (int) $user['id']);
-}
+$selectedCourse = $courseId ? owned_course($courseId, (int) $user['id']) : null;
 
 // Load assignments for the selected course filter.
 $assignments = [];
@@ -88,6 +86,10 @@ $submissionStatement = database()->prepare($sql);
 $submissionStatement->execute($parameters);
 $submissions = $submissionStatement->fetchAll();
 
+$courseBreadcrumb = $selectedCourse ? [
+    'label' => $selectedCourse['course_code'],
+    'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
+] : null;
 $pageTitle = 'Student submissions';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';

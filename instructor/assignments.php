@@ -21,7 +21,8 @@ $selectedCourse = $courseId ? owned_course($courseId, (int) $user['id']) : null;
 $errors = [];
 $title = '';
 $instructions = '';
-$deadline = '';
+$deadlineDate = '';
+$deadlineTime = '';
 $maxGrade = '100.00';
 
 if (is_post()) {
@@ -33,7 +34,9 @@ if (is_post()) {
 
     $title = clean_text($_POST['title'] ?? '');
     $instructions = clean_text($_POST['instructions'] ?? '');
-    $deadline = clean_text($_POST['deadline'] ?? '');
+    $deadlineDate = clean_text($_POST['deadline_date'] ?? '');
+    $deadlineTime = clean_text($_POST['deadline_time'] ?? '');
+    $deadline = $deadlineDate . 'T' . $deadlineTime;
     $maxGrade = clean_text($_POST['max_grade'] ?? '');
 
     if (mb_strlen($title) < 2 || mb_strlen($title) > 180) {
@@ -92,6 +95,10 @@ if ($selectedCourse) {
     $assignments = $assignmentStatement->fetchAll();
 }
 
+$courseBreadcrumb = $selectedCourse ? [
+    'label' => $selectedCourse['course_code'],
+    'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
+] : null;
 $pageTitle = 'Assignments';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';
@@ -161,21 +168,32 @@ require __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-md-7">
-                                <label class="form-label" for="deadline">Deadline</label>
+                            <div class="col-md-5">
+                                <label class="form-label" for="deadline_date">Deadline date</label>
                                 <input
                                     class="form-control <?= isset($errors['deadline']) ? 'is-invalid' : '' ?>"
-                                    type="datetime-local"
-                                    id="deadline"
-                                    name="deadline"
-                                    value="<?= e($deadline) ?>"
+                                    type="date"
+                                    id="deadline_date"
+                                    name="deadline_date"
+                                    value="<?= e($deadlineDate) ?>"
                                     required
                                 >
                                 <?php if (isset($errors['deadline'])): ?>
                                     <div class="invalid-feedback"><?= e($errors['deadline']) ?></div>
                                 <?php endif; ?>
                             </div>
-                            <div class="col-md-5">
+                            <div class="col-md-3">
+                                <label class="form-label" for="deadline_time">Deadline time</label>
+                                <input
+                                    class="form-control <?= isset($errors['deadline']) ? 'is-invalid' : '' ?>"
+                                    type="time"
+                                    id="deadline_time"
+                                    name="deadline_time"
+                                    value="<?= e($deadlineTime) ?>"
+                                    required
+                                >
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label" for="max_grade">Maximum grade</label>
                                 <input
                                     class="form-control"

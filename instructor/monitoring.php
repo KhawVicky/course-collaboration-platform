@@ -84,6 +84,10 @@ if ($selectedCourse) {
     $students = $monitoringStatement->fetchAll();
 }
 
+$courseBreadcrumb = $selectedCourse ? [
+    'label' => $selectedCourse['course_code'],
+    'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
+] : null;
 $pageTitle = 'Student participation';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';

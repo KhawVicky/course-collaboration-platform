@@ -7,6 +7,8 @@ require_once __DIR__ . '/includes/auth.php';
 $user = require_login();
 $courseId = positive_id($_GET['course_id'] ?? $_POST['course_id'] ?? null)
     ?? not_found('Invalid course ID.');
+$page = positive_id($_GET['page'] ?? $_POST['page'] ?? null) ?? 1;
+$threadsPerPage = 5;
 require_course_access($courseId, $user);
 
 // Load the course after the access check succeeds.
@@ -84,20 +86,35 @@ if (is_post()) {
                 'content' => $content,
             ]);
             flash('success', 'Reply posted.');
-            redirect('discussions.php?course_id=' . $courseId . '#thread-' . $threadId);
+            redirect('discussions.php?course_id=' . $courseId . '&page=' . $page . '#thread-' . $threadId);
         }
     }
 }
 
-// Load all threads and their replies for display.
+// Count the course threads before loading only the requested page.
+$countStatement = database()->prepare(
+    'SELECT COUNT(*)
+     FROM discussion_threads
+     WHERE course_id = :course'
+);
+$countStatement->execute(['course' => $courseId]);
+$totalThreads = (int) $countStatement->fetchColumn();
+$totalPages = max(1, (int) ceil($totalThreads / $threadsPerPage));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $threadsPerPage;
+
 $threadStatement = database()->prepare(
     'SELECT t.*, u.full_name AS author_name, u.role AS author_role
      FROM discussion_threads t
      JOIN users u ON u.id = t.author_id
      WHERE t.course_id = :course
-     ORDER BY t.created_at DESC'
+     ORDER BY t.created_at DESC, t.id DESC
+     LIMIT :limit OFFSET :offset'
 );
-$threadStatement->execute(['course' => $courseId]);
+$threadStatement->bindValue(':course', $courseId, PDO::PARAM_INT);
+$threadStatement->bindValue(':limit', $threadsPerPage, PDO::PARAM_INT);
+$threadStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+$threadStatement->execute();
 $threads = $threadStatement->fetchAll();
 
 $replyStatement = database()->prepare(
@@ -114,6 +131,10 @@ foreach ($threads as &$thread) {
 unset($thread);
 
 $coursePath = $user['role'] === 'student' ? 'student' : 'instructor';
+$courseBreadcrumb = [
+    'label' => $course['course_code'],
+    'url' => url($coursePath . '/course.php?id=' . $courseId),
+];
 $pageTitle = 'Course discussions';
 $activePage = $user['role'] === 'student' ? 'my-courses' : 'instructor-courses';
 require __DIR__ . '/includes/header.php';
@@ -196,6 +217,7 @@ require __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="course_id" value="<?= $courseId ?>">
                                 <input type="hidden" name="action" value="reply">
                                 <input type="hidden" name="thread_id" value="<?= $thread['id'] ?>">
+                                <input type="hidden" name="page" value="<?= $page ?>">
                                 <label class="form-label" for="reply-<?= $thread['id'] ?>">Reply</label>
                                 <div class="d-flex gap-2">
                                     <textarea
@@ -210,6 +232,32 @@ require __DIR__ . '/includes/header.php';
                             </form>
                         </article>
                     <?php endforeach; ?>
+
+                    <?php if ($totalPages > 1): ?>
+                        <nav class="discussion-pagination" aria-label="Discussion pages">
+                            <?php if ($page > 1): ?>
+                                <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . ($page - 1))) ?>">Previous</a>
+                            <?php else: ?>
+                                <span class="disabled" aria-disabled="true">Previous</span>
+                            <?php endif; ?>
+
+                            <div class="discussion-page-numbers">
+                                <?php for ($pageNumber = 1; $pageNumber <= $totalPages; $pageNumber++): ?>
+                                    <?php if ($pageNumber === $page): ?>
+                                        <span class="current" aria-current="page"><?= $pageNumber ?></span>
+                                    <?php else: ?>
+                                        <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . $pageNumber)) ?>"><?= $pageNumber ?></a>
+                                    <?php endif; ?>
+                                <?php endfor; ?>
+                            </div>
+
+                            <?php if ($page < $totalPages): ?>
+                                <a href="<?= e(url('discussions.php?course_id=' . $courseId . '&page=' . ($page + 1))) ?>">Next</a>
+                            <?php else: ?>
+                                <span class="disabled" aria-disabled="true">Next</span>
+                            <?php endif; ?>
+                        </nav>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>

@@ -85,9 +85,9 @@ require __DIR__ . '/../includes/header.php';
             <a class="btn btn-sun" href="#create-course">Create course</a>
         </div>
 
-        <div class="row g-4">
-            <div class="col-lg-7">
-                <div class="content-panel">
+        <div class="row g-4 course-management-layout">
+            <div class="col-lg-7 owned-courses-column">
+                <div class="content-panel owned-courses-panel">
                     <div class="panel-heading">
                         <h2>Owned courses</h2>
                         <span class="count-pill"><?= count($courses) ?> total</span>
@@ -99,7 +99,7 @@ require __DIR__ . '/../includes/header.php';
                             <p>Create your first course using the form.</p>
                         </div>
                     <?php else: ?>
-                        <div class="vstack gap-3">
+                        <div class="vstack gap-3 owned-courses-list">
                             <?php foreach ($courses as $course): ?>
                                 <a
                                     class="course-list-item"
@@ -120,7 +120,7 @@ require __DIR__ . '/../includes/header.php';
                 </div>
             </div>
 
-            <div class="col-lg-5" id="create-course">
+            <div class="col-lg-5 ms-lg-auto course-form-column" id="create-course">
                 <div class="content-panel sticky-lg-top app-sticky">
                     <p class="eyebrow">New course</p>
                     <h2 class="form-title">Create a teaching space</h2>
