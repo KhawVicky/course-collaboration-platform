@@ -75,6 +75,10 @@ if (is_post()) {
     }
 }
 
+$courseBreadcrumb = [
+    'label' => $submission['course_code'],
+    'url' => url('instructor/course.php?id=' . $submission['course_id']),
+];
 $pageTitle = 'Grade submission';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';

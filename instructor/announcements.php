@@ -68,6 +68,10 @@ if ($selectedCourse) {
     $announcements = $announcementStatement->fetchAll();
 }
 
+$courseBreadcrumb = $selectedCourse ? [
+    'label' => $selectedCourse['course_code'],
+    'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
+] : null;
 $pageTitle = 'Announcements';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';

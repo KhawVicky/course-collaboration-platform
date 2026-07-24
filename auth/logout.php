@@ -14,4 +14,4 @@ if (!is_post()) {
 
 verify_csrf();
 logout_user();
-redirect('auth/login.php');
+redirect();

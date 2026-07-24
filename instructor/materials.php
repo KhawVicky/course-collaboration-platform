@@ -92,6 +92,10 @@ if ($selectedCourse) {
     $materials = $materialStatement->fetchAll();
 }
 
+$courseBreadcrumb = $selectedCourse ? [
+    'label' => $selectedCourse['course_code'],
+    'url' => url('instructor/course.php?id=' . $selectedCourse['id']),
+] : null;
 $pageTitle = 'Course materials';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';

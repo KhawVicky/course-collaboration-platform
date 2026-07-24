@@ -23,6 +23,10 @@ $statement->execute([
 ]);
 $profile = $statement->fetch() ?: not_found('This student is not enrolled in your course.');
 
+$courseBreadcrumb = [
+    'label' => $course['course_code'],
+    'url' => url('instructor/course.php?id=' . $courseId),
+];
 $pageTitle = 'Student collaboration profile';
 $activePage = 'instructor-courses';
 require __DIR__ . '/../includes/header.php';
