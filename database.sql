@@ -106,8 +106,11 @@ CREATE TABLE course_materials (
     mime_type VARCHAR(120) NOT NULL,
     file_size BIGINT UNSIGNED NOT NULL,
     uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    member_access_at DATETIME NOT NULL,
+    public_access_at DATETIME NOT NULL,
     KEY idx_materials_course (course_id),
     KEY idx_materials_uploader (uploaded_by),
+    CONSTRAINT chk_material_access_order CHECK (public_access_at >= member_access_at),
     CONSTRAINT fk_materials_course
         FOREIGN KEY (course_id) REFERENCES courses(id)
         ON UPDATE CASCADE ON DELETE CASCADE,
@@ -318,7 +321,8 @@ INSERT INTO enrolments (course_id, student_id, status, enrolled_at) VALUES
 -- Material rows reference PDF files that are present in uploads/materials.
 INSERT INTO course_materials
     (course_id, uploaded_by, title, description, stored_filename,
-     original_filename, mime_type, file_size, uploaded_at)
+     original_filename, mime_type, file_size, uploaded_at,
+     member_access_at, public_access_at)
 VALUES
     (
         (SELECT id FROM courses WHERE course_code = 'CSDM301'),
@@ -327,7 +331,8 @@ VALUES
         'Requirements and deliverables for the course collaboration platform final project.',
         '01bf4e31d31e327bf7a94006565fcbbc0994cdc1.pdf',
         'Final Project Assessment Brief.pdf',
-        'application/pdf', 809551, DATE_SUB(NOW(), INTERVAL 28 DAY)
+        'application/pdf', 809551, DATE_SUB(NOW(), INTERVAL 28 DAY),
+        DATE_SUB(NOW(), INTERVAL 28 DAY), DATE_SUB(NOW(), INTERVAL 28 DAY)
     ),
     (
         (SELECT id FROM courses WHERE course_code = 'CSDM301'),
@@ -336,7 +341,8 @@ VALUES
         'Lecture material covering verification, validation, and test-driven development.',
         'Week 5 - Software Development Methodologies - V&V and Test-driven development.pdf',
         'Week 5 - Software Development Methodologies - V&V and Test-driven development.pdf',
-        'application/pdf', 499255, DATE_SUB(NOW(), INTERVAL 21 DAY)
+        'application/pdf', 499255, DATE_SUB(NOW(), INTERVAL 21 DAY),
+        DATE_SUB(NOW(), INTERVAL 21 DAY), DATE_SUB(NOW(), INTERVAL 21 DAY)
     ),
     (
         (SELECT id FROM courses WHERE course_code = 'CSDM301'),
@@ -345,7 +351,8 @@ VALUES
         'Lecture material covering automated integration, delivery pipelines, and deployment practices.',
         'Week 6 - Software Development Methodologies - CI and Delivery.pdf',
         'Week 6 - Software Development Methodologies - CI and Delivery.pdf',
-        'application/pdf', 579348, DATE_SUB(NOW(), INTERVAL 14 DAY)
+        'application/pdf', 579348, DATE_SUB(NOW(), INTERVAL 14 DAY),
+        DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY)
     );
 
 -- Relative deadlines keep the demo useful whenever a fresh database is imported.
@@ -628,7 +635,8 @@ WHERE c.course_code = 'CSDM301';
 -- Reuse one existing PDF for additional material records without copying the file.
 INSERT INTO course_materials
     (course_id, uploaded_by, title, description, stored_filename,
-     original_filename, mime_type, file_size, uploaded_at)
+     original_filename, mime_type, file_size, uploaded_at,
+     member_access_at, public_access_at)
 SELECT
     c.id,
     instructor.id,
@@ -638,6 +646,8 @@ SELECT
     'Final Project Assessment Brief.pdf',
     'application/pdf',
     809551,
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW()),
+    TIMESTAMPADD(DAY, -demo.days_ago, NOW()),
     TIMESTAMPADD(DAY, -demo.days_ago, NOW())
 FROM courses c
 JOIN users instructor ON instructor.email = 'instructor@example.com'
@@ -655,6 +665,70 @@ WHERE c.course_code = 'CSDM301'
   AND NOT EXISTS (
       SELECT 1 FROM course_materials existing
       WHERE existing.course_id = c.id AND existing.title = demo.title
+  );
+
+-- Priority-access criteria rows reuse files already present in uploads/materials.
+INSERT INTO course_materials
+    (course_id, uploaded_by, title, description, stored_filename,
+     original_filename, mime_type, file_size, uploaded_at,
+     member_access_at, public_access_at)
+SELECT
+    c.id,
+    instructor.id,
+    dataset.title,
+    dataset.description,
+    dataset.stored_filename,
+    dataset.original_filename,
+    'application/pdf',
+    dataset.file_size,
+    NOW(),
+    dataset.member_access_at,
+    dataset.public_access_at
+FROM courses c
+JOIN users instructor ON instructor.email = 'instructor@example.com'
+JOIN (
+    SELECT
+        'Access Criteria 01 - Before Member Access' AS title,
+        'Both Member and Non-member students should see Not available yet.' AS description,
+        '01bf4e31d31e327bf7a94006565fcbbc0994cdc1.pdf' AS stored_filename,
+        'Final Project Assessment Brief.pdf' AS original_filename,
+        809551 AS file_size,
+        TIMESTAMPADD(DAY, 2, NOW()) AS member_access_at,
+        TIMESTAMPADD(DAY, 4, NOW()) AS public_access_at
+    UNION ALL
+    SELECT
+        'Access Criteria 02 - Member Priority Window',
+        'Members can access now; Non-members wait until Public Access Time.',
+        'Week 5 - Software Development Methodologies - V&V and Test-driven development.pdf',
+        'Week 5 - Software Development Methodologies - V&V and Test-driven development.pdf',
+        499255,
+        TIMESTAMPADD(DAY, -2, NOW()),
+        TIMESTAMPADD(DAY, 2, NOW())
+    UNION ALL
+    SELECT
+        'Access Criteria 03 - Public Access Open',
+        'Both Member and Non-member students can access this material now.',
+        'Week 6 - Software Development Methodologies - CI and Delivery.pdf',
+        'Week 6 - Software Development Methodologies - CI and Delivery.pdf',
+        579348,
+        TIMESTAMPADD(DAY, -4, NOW()),
+        TIMESTAMPADD(DAY, -2, NOW())
+    UNION ALL
+    SELECT
+        'Access Criteria 04 - Same-Time Release',
+        'Member and Public Access Time are equal; this checks the boundary case.',
+        '01bf4e31d31e327bf7a94006565fcbbc0994cdc1.pdf',
+        'Final Project Assessment Brief.pdf',
+        809551,
+        TIMESTAMPADD(DAY, 6, NOW()),
+        TIMESTAMPADD(DAY, 6, NOW())
+) dataset
+WHERE c.course_code = 'CSDM301'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM course_materials existing
+      WHERE existing.course_id = c.id
+        AND existing.title = dataset.title
   );
 
 -- Add nine assessments so CSDM301 contains eleven assignments in a fresh import.

@@ -41,6 +41,10 @@ cd course-collaboration-platform
 
 Only `database.sql` is required for a new installation.
 
+For an existing installation, apply `migrations/course_material_priority_access.sql` once after backing up the database.
+
+To load the reusable material access criteria demo rows, run `migrations/material_access_criteria_dataset.sql`. It reuses the PDFs already in `uploads/materials`.
+
 ### 5. Open the website
 
 Open this URL in your browser:
