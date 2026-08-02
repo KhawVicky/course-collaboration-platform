@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 // Check file permissions before sending any stored file.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/material_access.php';
 
 $user = require_login();
 $id = positive_id($_GET['id'] ?? null) ?? not_found('Invalid file ID.');
@@ -18,7 +18,7 @@ if ($type === 'material') {
     );
     $statement->execute(['id' => $id]);
     $file = $statement->fetch() ?: not_found('Material not found.');
-    require_course_access((int) $file['course_id'], $user);
+    require_material_access($file, $user);
     $folder = 'materials';
 } elseif ($type === 'submission') {
     // Load a submission and allow only its student or course owner.

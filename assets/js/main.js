@@ -23,13 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     revealItems.forEach((item) => observer.observe(item));
 
-    // Close flash messages after ten seconds.
+    // Close flash messages after one second.
     document.querySelectorAll('.flash-stack .alert').forEach((alertElement) => {
         window.setTimeout(() => {
             if (alertElement.isConnected && typeof bootstrap !== 'undefined') {
                 bootstrap.Alert.getOrCreateInstance(alertElement).close();
             }
-        }, 10000);
+        }, 1000);
     });
     // Submit filter forms when the selected course changes.
     document.querySelectorAll('[data-submit-on-change]').forEach((select) => {
