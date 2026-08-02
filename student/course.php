@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Show course details and enrolled course content.
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/material_access.php';
 
 $user = require_role('student');
 $courseId = positive_id($_GET['id'] ?? null) ?? not_found('Invalid course ID.');
@@ -75,11 +76,13 @@ $announcements = [];
 
 if ($isEnrolled) {
     // Load protected materials for this enrolled student.
+    $membershipStatus = membership_status((int) $user['id']);
     $materialStatement = database()->prepare(
-        'SELECT *
-         FROM course_materials
-         WHERE course_id = :course_id
-         ORDER BY uploaded_at DESC'
+        'SELECT m.*, c.instructor_id
+         FROM course_materials m
+         JOIN courses c ON c.id = m.course_id
+         WHERE m.course_id = :course_id
+         ORDER BY m.uploaded_at DESC'
     );
     $materialStatement->execute(['course_id' => $courseId]);
     $materials = $materialStatement->fetchAll();
@@ -156,15 +159,23 @@ require __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                     <div class="resource-list">
                         <?php foreach ($materials as $material): ?>
-                            <a href="<?= e(url('download.php?type=material&id=' . $material['id'])) ?>">
+                            <?php $materialAccess = material_access_state($material, $user, $membershipStatus, true); ?>
+                            <div class="material-row">
                                 <div>
                                     <strong><?= e($material['title']) ?></strong>
                                     <small>
                                         <?= e($material['description'] ?: $material['original_filename']) ?>
                                     </small>
+                                    <span class="material-access-status <?= $materialAccess['allowed'] ? '' : 'is-locked' ?>">
+                                        <?= e($materialAccess['message']) ?>
+                                    </span>
                                 </div>
-                                <span>Download</span>
-                            </a>
+                                <?php if ($materialAccess['allowed']): ?>
+                                    <a href="<?= e(url('download.php?type=material&id=' . $material['id'])) ?>">Download</a>
+                                <?php else: ?>
+                                    <span class="material-actions is-locked" aria-disabled="true">Locked</span>
+                                <?php endif; ?>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>

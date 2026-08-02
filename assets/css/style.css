@@ -338,6 +338,9 @@ textarea.form-control { min-height: 130px; }
 .resource-list > a, .assignment-list > a, .assignment-admin { align-items: center; border-bottom: 1px solid var(--line); color: var(--ink); display: flex; gap: 1rem; justify-content: space-between; padding: 1.2rem .2rem; text-decoration: none; }
 .resource-list > a:first-child, .assignment-list > a:first-child { border-top: 1px solid var(--line); }
 .resource-list > a > div, .assignment-list > a > div, .assignment-admin > .assignment-summary { display: flex; flex-direction: column; }
+.resource-list > .material-row { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 1rem; justify-content: space-between; padding: 1.2rem .2rem; }
+.resource-list > .material-row:first-child { border-top: 1px solid var(--line); }
+.material-row > div:first-child { display: flex; flex-direction: column; min-width: 0; }
 .assignment-summary { flex: 1 1 auto; min-width: 0; }
 .edit-assignment-actions { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
 .edit-assignment-actions form { margin: 0; }
@@ -345,6 +348,11 @@ textarea.form-control { min-height: 130px; }
 .btn-delete:hover, .btn-delete:focus-visible { background: #91362b; border-color: #91362b; color: var(--paper); }
 .resource-list small, .assignment-list small, .assignment-admin small { color: var(--muted); margin-top: .25rem; }
 .resource-list > a > span, .assignment-list > a > span { color: var(--forest); font-size: .75rem; font-weight: 700; }
+.material-actions { align-items: center; display: flex; flex: 0 0 auto; gap: 1rem; }
+.material-actions a { color: var(--forest); font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.material-access-status { color: var(--forest); font-size: .75rem; font-weight: 700; margin-top: .55rem; }
+.material-access-status.is-locked { color: #91362b; }
+.material-actions .is-locked { color: var(--muted); }
 .announcement { border-bottom: 1px solid var(--line); padding: 1.5rem 0; }
 .announcement:last-child { border-bottom: 0; }
 .announcement h2, .announcement h3 { font-family: var(--display); font-size: 1.9rem; }
@@ -519,6 +527,8 @@ textarea.form-control { min-height: 130px; }
     .panel-heading { align-items: flex-start; flex-direction: column; }
     .action-grid, .student-actions { grid-template-columns: repeat(2,1fr); }
     .course-list-item { grid-template-columns: 72px 1fr auto; }
+    .material-row { align-items: flex-start !important; flex-direction: column; }
+    .material-actions { justify-content: flex-start; }
     .timeline-item { grid-template-columns: 1fr; }
     .reply-list { padding-left: .5rem; }
     .reply-form .d-flex { flex-direction: column; }
